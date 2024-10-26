@@ -68,71 +68,25 @@ public class Reservation extends BaseEntity {
             .build();
     }
 
-    public static Reservation createMaleReadyReservation(Court court, Member member, Team team, LocalDateTime matchDate) {
+    public static Reservation createReadyReservation(Court court, Member member, Team team, ParticipantGender gender, LocalDateTime matchDate) {
         return Reservation.builder()
             .court(court)
             .member(member)
             .team(team)
             .matchDate(matchDate)
             .reservationStatus(ReservationStatus.READY)
-            .gender(ParticipantGender.MALE)
-            .build();
-
-    }
-
-    public static Reservation createFemaleReadyReservation(Court court, Member member, Team team, LocalDateTime matchDate) {
-        return Reservation.builder()
-            .court(court)
-            .member(member)
-            .team(team)
-            .matchDate(matchDate)
-            .reservationStatus(ReservationStatus.READY)
-            .gender(ParticipantGender.FEMALE)
+            .gender(gender)
             .build();
     }
 
-    public static Reservation createMixedReadyReservation(Court court, Member member, Team team, LocalDateTime matchDate) {
-        return Reservation.builder()
-            .court(court)
-            .member(member)
-            .team(team)
-            .matchDate(matchDate)
-            .reservationStatus(ReservationStatus.READY)
-            .gender(ParticipantGender.MIXED)
-            .build();
-    }
-
-    public static Reservation createMaleRecruitReservation(Court court, Member member, Team team, LocalDateTime matchDate) {
+    public static Reservation createRecruitReservation(Court court, Member member, Team team, ParticipantGender gender, LocalDateTime matchDate) {
         return Reservation.builder()
             .court(court)
             .member(member)
             .team(team)
             .matchDate(matchDate)
             .reservationStatus(ReservationStatus.RECRUITING)
-            .gender(ParticipantGender.MALE)
-            .build();
-
-    }
-
-    public static Reservation createFemaleRecruitReservation(Court court, Member member, Team team, LocalDateTime matchDate) {
-        return Reservation.builder()
-            .court(court)
-            .member(member)
-            .team(team)
-            .matchDate(matchDate)
-            .reservationStatus(ReservationStatus.RECRUITING)
-            .gender(ParticipantGender.FEMALE)
-            .build();
-    }
-
-    public static Reservation createMixedRecruitReservation(Court court, Member member, Team team, LocalDateTime matchDate) {
-        return Reservation.builder()
-            .court(court)
-            .member(member)
-            .team(team)
-            .matchDate(matchDate)
-            .reservationStatus(ReservationStatus.RECRUITING)
-            .gender(ParticipantGender.MIXED)
+            .gender(gender)
             .build();
     }
 
@@ -140,8 +94,8 @@ public class Reservation extends BaseEntity {
         this.reservationStatus = reservationStatus;
     }
 
-    public void checkReservationOwner(Long memberId){
-        if (this.member.getMemberId().equals(memberId)){
+    public void checkReservationOwner(Long memberId) {
+        if (this.member.getMemberId().equals(memberId)) {
             return;
         }
         throw new IllegalArgumentException("회의를 예약한 사람만 수정 및 삭제할 수 있습니다.");
