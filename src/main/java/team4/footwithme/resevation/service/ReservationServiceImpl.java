@@ -65,62 +65,57 @@ public class ReservationServiceImpl implements ReservationService {
     @Transactional
     @Override
     public void createReservation(Long memberId, Long courtId, Long teamId, LocalDateTime matchDate, List<Long> memberIds) {
-        Court court = courtRepository.findActiveById(courtId).orElseThrow(
-            () -> new IllegalArgumentException("해당하는 구장이 없습니다.")
-        );
-        Member member = memberRepository.findActiveById(memberId).orElseThrow(
-            () -> new IllegalArgumentException("해당하는 회원이 없습니다.")
-        );
-        Team team = teamRepository.findById(teamId).orElseThrow(
-            () -> new IllegalArgumentException("해당하는 팀이 없습니다.")
-        );
+        Court court = courtRepository.findActiveById(courtId)
+            .orElseThrow(() -> new IllegalArgumentException("해당하는 구장이 없습니다."));
+        Member member = memberRepository.findActiveById(memberId)
+            .orElseThrow(() -> new IllegalArgumentException("해당하는 회원이 없습니다."));
+        Team team = teamRepository.findById(teamId)
+            .orElseThrow(() -> new IllegalArgumentException("해당하는 팀이 없습니다."));
 
         List<Member> participantMembers = memberRepository.findAllById(memberIds);
 
-        boolean allMale = participantMembers.stream()
-            .map(Member::getGender)
-            .allMatch(Gender.MALE::equals);
+        Reservation reservation = createReservationOf(court, member, team, matchDate, participantMembers);
+        Reservation savedReservation = reservationRepository.save(reservation);
 
-        boolean allFemale = participantMembers.stream()
-            .map(Member::getGender)
-            .allMatch(Gender.FEMALE::equals);
+        List<Participant> participants = createParticipantsOf(savedReservation, participantMembers);
+        participantRepository.saveAll(participants);
 
-        Reservation reservation;
-        if (memberIds.size() >= 6) {
-            // 예약 만들기
-            if (allMale) {
-                reservation = Reservation.createMaleReadyReservation(court, member, team, matchDate);
-            } else if (allFemale) {
-                reservation = Reservation.createFemaleReadyReservation(court, member, team, matchDate);
-            } else {
-                reservation = Reservation.createMixedReadyReservation(court, member, team, matchDate);
-            }
-            Reservation savedReservation = reservationRepository.save(reservation);
-            List<Participant> participants = participantMembers.stream()
-                .map(participantMember -> Participant.create(reservation, participantMember, ParticipantRole.MEMBER))
-                .toList();
-            participantRepository.saveAll(participants);
-            eventPublisher.publishEvent(new ReservationPublishedEvent("예약 채팅방", savedReservation.getReservationId()));
-            eventPublisher.publishEvent(new ReservationMembersJoinEvent(participants, savedReservation.getReservationId()));
-        } else {
-            // 용병 만들기
-            if (allMale) {
-                reservation = Reservation.createMaleRecruitReservation(court, member, team, matchDate);
-            } else if (allFemale) {
-                reservation = Reservation.createFemaleRecruitReservation(court, member, team, matchDate);
-            } else {
-                reservation = Reservation.createMixedRecruitReservation(court, member, team, matchDate);
-            }
-            Reservation savedReservation = reservationRepository.save(reservation);
-            List<Participant> participants = participantMembers.stream()
-                .map(participantMember -> Participant.create(reservation, participantMember, ParticipantRole.MEMBER))
-                .toList();
-            participantRepository.saveAll(participants);
+        if (memberIds.size() < 6) {
             Mercenary mercenary = Mercenary.createDefault(reservation);
             mercenaryRepository.save(mercenary);
-            eventPublisher.publishEvent(new ReservationPublishedEvent("예약 채팅방", savedReservation.getReservationId()));
-            eventPublisher.publishEvent(new ReservationMembersJoinEvent(participants, savedReservation.getReservationId()));
         }
+
+        publishChatEventsOf(savedReservation, participants);
+    }
+
+    private Reservation createReservationOf(Court court, Member member, Team team, LocalDateTime matchDate, List<Member> participantMembers) {
+        ParticipantGender gender = classifyGenderBy(participantMembers);
+
+        if (participantMembers.size() >= 6) {
+            return Reservation.createReadyReservation(court, member, team, gender, matchDate);
+        }
+        return Reservation.createRecruitReservation(court, member, team, gender, matchDate);
+    }
+
+    private ParticipantGender classifyGenderBy(List<Member> participantMembers) {
+        if (participantMembers.stream().allMatch(m -> m.getGender() == Gender.MALE)) {
+            return ParticipantGender.MALE;
+        }
+        if (participantMembers.stream().allMatch(m -> m.getGender() == Gender.FEMALE)) {
+            return ParticipantGender.FEMALE;
+        }
+        return ParticipantGender.MIXED;
+    }
+
+    private List<Participant> createParticipantsOf(Reservation reservation, List<Member> participantMembers) {
+        return participantMembers.stream()
+            .map(participantMember -> Participant.create(reservation, participantMember, ParticipantRole.MEMBER))
+            .toList();
+    }
+
+    private void publishChatEventsOf(Reservation reservation, List<Participant> participants) {
+        eventPublisher.publishEvent(new ReservationPublishedEvent("예약 채팅방", reservation.getReservationId()));
+        eventPublisher.publishEvent(new ReservationMembersJoinEvent(participants, reservation.getReservationId()));
     }
 
     @Override
@@ -224,7 +219,7 @@ public class ReservationServiceImpl implements ReservationService {
     @Override
     public ReservationInfoResponse changeStatus(ReservationUpdateServiceRequest request, Member member) {
         Reservation reservation = reservationRepository.findById(request.reservationId())
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 예약입니다."));
+            .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 예약입니다."));
 
         reservation.checkReservationOwner(member.getMemberId());
 
