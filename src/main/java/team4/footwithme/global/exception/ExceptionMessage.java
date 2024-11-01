@@ -19,6 +19,9 @@ public enum ExceptionMessage {
 
     // Member
     MEMBER_NOT_FOUND("해당 유저를 찾을 수 없습니다."),
+    NOT_EXIST_EMAIL("존재하지 않는 이메일 입니다."),
+    DUPLICATE_EMAIL("이미 존재하는 이메일 입니다."),
+    NOT_MATCHED_PASSWORD("패스워드가 일치하지 않습니다."),
 
     // Chat
     CHAT_NOT_FOUND("해당 채팅을 찾을 수 없습니다."),
@@ -48,6 +51,16 @@ public enum ExceptionMessage {
 
     //Game
     GAME_NOT_FOUND("해당 게임을 찾을 수 없습니다."),
-    GAME_STATUS_NOT_VALID("게임 상태는 READY 또는 IGNORE만 가능합니다.");
+    GAME_STATUS_NOT_VALID("게임 상태는 READY 또는 IGNORE만 가능합니다."),
+
+    //JWT
+    INVALID_JWT_TOKEN("유효하지 않은 JWT 토큰입니다."),
+    EXPIRED_JWT_TOKEN("만료된 JWT 토큰 입니다."),
+    UNSUPPORTED_JWT_TOKEN("지원하지 않은 JWT 입니다."),
+    EMPTY_JWT_TOKEN("JWT 값이 비어있습니다.");
+
     private final String text;
+
+
+
 }

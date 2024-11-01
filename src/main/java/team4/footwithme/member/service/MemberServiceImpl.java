@@ -6,6 +6,7 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import team4.footwithme.global.exception.ExceptionMessage;
 import team4.footwithme.member.domain.Member;
 import team4.footwithme.member.jwt.JwtTokenFilter;
 import team4.footwithme.member.jwt.JwtTokenUtil;
@@ -110,18 +111,18 @@ public class MemberServiceImpl implements MemberService {
 
     private Member findMemberByEmailElseThrow(String email){
         return memberRepository.findByEmail(email)
-                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자 입니다."));
+                .orElseThrow(() -> new IllegalArgumentException(ExceptionMessage.MEMBER_NOT_FOUND.getText()));
     }
 
     private void checkPasswordMatch(String password, String passwordConfirm){
         if (!passwordEncoder.matches(password, passwordConfirm)) {
-            throw new IllegalArgumentException("패스워드가 일치하지 않습니다.");
+            throw new IllegalArgumentException(ExceptionMessage.NOT_MATCHED_PASSWORD.getText());
         }
     }
 
     private void checkDuplicateEmail(String email){
         if (memberRepository.existByEmail(email))
-            throw new IllegalArgumentException("이미 존재하는 이메일 입니다.");
+            throw new IllegalArgumentException(ExceptionMessage.DUPLICATE_EMAIL.getText());
     }
 
     private TokenResponse convertToTokenResponseFrom(String refreshToken) {
