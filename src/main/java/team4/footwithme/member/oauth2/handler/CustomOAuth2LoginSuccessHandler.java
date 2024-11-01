@@ -1,4 +1,4 @@
-package team4.footwithme.member.oauth2;
+package team4.footwithme.member.oauth2.handler;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.ServletException;
@@ -16,6 +16,7 @@ import team4.footwithme.member.domain.Member;
 import team4.footwithme.member.domain.MemberRole;
 import team4.footwithme.member.jwt.JwtTokenUtil;
 import team4.footwithme.member.jwt.response.TokenResponse;
+import team4.footwithme.member.oauth2.CustomOAuth2UserDetails;
 import team4.footwithme.member.oauth2.response.MemberOAuthResponse;
 import team4.footwithme.member.service.CookieService;
 
