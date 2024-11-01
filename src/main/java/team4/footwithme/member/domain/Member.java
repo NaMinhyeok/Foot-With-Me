@@ -110,7 +110,7 @@ public class Member extends BaseEntity {
         this.password = password;
     }
 
-    public boolean isOAuthMember(){
-        return this.password == null;
+    public boolean isOriginalMember(){
+        return this.password != null;
     }
 }

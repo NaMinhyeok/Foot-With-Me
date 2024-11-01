@@ -36,7 +36,7 @@ public class MemberServiceImpl implements MemberService {
         checkDuplicateEmail(serviceRequest.email());
         Member member = serviceRequest.toEntity();
 
-        if (!member.isOAuthMember()) {
+        if (member.isOriginalMember()) {
             member.encodePassword(passwordEncoder);
         }
 
