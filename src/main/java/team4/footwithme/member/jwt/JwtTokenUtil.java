@@ -32,11 +32,14 @@ public class JwtTokenUtil {
     public static final String ACCESS_TOKEN = "Authorization";
     public static final String REFRESH_TOKEN = "refresh_token";
     public static final String BEARER_PREFIX = "Bearer ";
+    public static final String COOKIE_REFRESH_TOKEN = "refreshToken";
     public static final long ACCESS_TIME = Duration.ofMinutes(30).toMillis(); // 만료시간 30분
     public static final long REFRESH_TIME = Duration.ofDays(14).toMillis(); // 만료시간 2주
+
     private final PrincipalDetailsService userDetailService;
     private final MemberRepository memberRepository;
     private final RedisTemplate redisTemplate;
+
     @Value("${jwt.secret}")
     private String secretKey;
     private Key key;
@@ -58,7 +61,7 @@ public class JwtTokenUtil {
         MemberRole role = getRoleFromEmail(email);
 
         String accessToken = createAccessToken(email, role);
-        String refreshToken = createRefreshToken(email, role);
+        String refreshToken = createRefreshToken(email);
 
         return TokenResponse.of(accessToken, refreshToken, REFRESH_TIME);
     }
@@ -90,17 +93,15 @@ public class JwtTokenUtil {
             .compact();
     }
 
-    public String createRefreshToken(String email, MemberRole role) {
+    public String createRefreshToken(String email) {
         Date date = new Date();
 
-        String refreshToken = Jwts.builder()
+        return Jwts.builder()
             .setSubject(email)
             .setExpiration(new Date(date.getTime() + REFRESH_TIME))
             .setIssuedAt(date)
             .signWith(key, SignatureAlgorithm.HS256)
             .compact();
-
-        return refreshToken;
     }
 
     public Authentication createAuthentication(String email) {

@@ -15,16 +15,24 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.List;
+
+import static team4.footwithme.member.jwt.JwtTokenUtil.*;
+
 
 @Component
 @RequiredArgsConstructor
 public class JwtTokenFilter extends OncePerRequestFilter {
 
-    public static final String ACCESS_TOKEN = "Authorization";
-    public static final String REFRESH_TOKEN = "refresh_token";
-    private static final String COOKIE_REFRESH_TOKEN = "refreshToken";
     private final JwtTokenUtil jwtTokenUtil;
     private final RedisTemplate redisTemplate;
+
+    private static final List<String> EXCLUDED_URLS = Arrays.asList(
+            "/api/v1/members/join",
+            "/api/v1/members/login",
+            "/api/v1/court/",
+            "/api/v1/stadium/"
+    );
 
     public static String getRefreshTokenByRequest(HttpServletRequest request) {
         Cookie cookies[] = request.getCookies();
@@ -40,21 +48,25 @@ public class JwtTokenFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
-        String cookie_refreshToken = getRefreshTokenByRequest(request);
-        String accessToken = jwtTokenUtil.getHeaderToken(request, ACCESS_TOKEN);
-        String refreshToken = jwtTokenUtil.getHeaderToken(request, REFRESH_TOKEN);
-        if (cookie_refreshToken != null) {
-            processSecurity(accessToken, cookie_refreshToken, response);
+        if (isExcludedUrl(request.getRequestURI())) {
+            filterChain.doFilter(request, response);
         }
 
-        if (cookie_refreshToken == null) {
-            processSecurity(accessToken, refreshToken, response);
+        String cookieRefreshToken = getRefreshTokenByRequest(request);
+        String accessToken = jwtTokenUtil.getHeaderToken(request, ACCESS_TOKEN);
+        String refreshToken = jwtTokenUtil.getHeaderToken(request, REFRESH_TOKEN);
+        if (cookieRefreshToken != null) {
+            processSecurity(accessToken, cookieRefreshToken);
+        }
+
+        if (cookieRefreshToken == null) {
+            processSecurity(accessToken, refreshToken);
         }
 
         filterChain.doFilter(request, response);
     }
 
-    private void processSecurity(String accessToken, String refreshToken, HttpServletResponse response) throws ServletException {
+    private void processSecurity(String accessToken, String refreshToken) {
 
         if (accessToken != null) {
             jwtTokenUtil.tokenValidation(accessToken);
@@ -75,6 +87,10 @@ public class JwtTokenFilter extends OncePerRequestFilter {
     public void setAuthentication(String email) {
         Authentication authentication = jwtTokenUtil.createAuthentication(email);
         SecurityContextHolder.getContext().setAuthentication(authentication);
+    }
+
+    private boolean isExcludedUrl(String requestURI) {
+        return EXCLUDED_URLS.stream().anyMatch(requestURI::startsWith);
     }
 
 
