@@ -14,6 +14,6 @@ public class CustomAccessDeniedHandler implements AccessDeniedHandler {
 
     @Override
     public void handle(HttpServletRequest request, HttpServletResponse response, AccessDeniedException accessDeniedException) throws IOException, ServletException {
-        ErrorResponseUtil.sendErrorResponse(response, "권한이 업습니다.", HttpServletResponse.SC_FORBIDDEN, HttpStatus.FORBIDDEN);
+        ErrorResponseUtil.sendErrorResponse(response, "권한이 없습니다.", HttpServletResponse.SC_FORBIDDEN, HttpStatus.FORBIDDEN);
     }
 }
