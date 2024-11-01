@@ -6,7 +6,6 @@ import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import team4.footwithme.config.SecurityConfig;
 import team4.footwithme.member.domain.Member;
 import team4.footwithme.member.jwt.JwtTokenFilter;
 import team4.footwithme.member.jwt.JwtTokenUtil;
@@ -26,7 +25,6 @@ import java.util.concurrent.TimeUnit;
 public class MemberServiceImpl implements MemberService {
 
     private final MemberRepository memberRepository;
-    private final SecurityConfig jwtSecurityConfig;
     private final JwtTokenUtil jwtTokenUtil;
     private final RedisTemplate redisTemplate;
     private final BCryptPasswordEncoder passwordEncoder;
@@ -34,13 +32,11 @@ public class MemberServiceImpl implements MemberService {
     @Override
     @Transactional
     public MemberResponse join(JoinServiceRequest serviceRequest) {
-        if (memberRepository.existByEmail(serviceRequest.email()))
-            throw new IllegalArgumentException("이미 존재하는 이메일 입니다.");
-
+        checkDuplicateEmail(serviceRequest.email());
         Member member = serviceRequest.toEntity();
 
-        if (member.getPassword() != null) { // OAUth 2 회원가입 시 Password 가 null로 들어옴
-            member.encodePassword(jwtSecurityConfig.passwordEncoder());
+        if (!member.isOAuthMember()) {
+            member.encodePassword(passwordEncoder);
         }
 
         memberRepository.save(member);
@@ -52,16 +48,11 @@ public class MemberServiceImpl implements MemberService {
     @Override
     @Transactional
     public LoginResponse login(LoginServiceRequest serviceRequest) {
-        Member member = memberRepository.findByEmail(serviceRequest.email())
-            .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자 입니다."));
-
-        if (!jwtSecurityConfig.passwordEncoder().matches(serviceRequest.password(), member.getPassword())) {
-            throw new IllegalArgumentException("패스워드가 일치하지 않습니다.");
-        }
+        Member member = findMemberByEmailElseThrow(serviceRequest.email());
+        checkPasswordMatch(serviceRequest.password(), member.getPassword());
 
         TokenResponse tokenResponse = jwtTokenUtil.createToken(member.getEmail());
-        redisTemplate.opsForValue().set(member.getEmail(), tokenResponse.refreshToken(), tokenResponse.refreshTokenExpirationTime(), TimeUnit.MICROSECONDS);
-        // Redis에 RefreshToken 저장
+        setRedis(member.getEmail(), tokenResponse.refreshToken(), tokenResponse.refreshTokenExpirationTime(), TimeUnit.MICROSECONDS);
 
         return LoginResponse.from(tokenResponse);
     }
@@ -79,25 +70,19 @@ public class MemberServiceImpl implements MemberService {
         }
 
         long expiration = jwtTokenUtil.getExpiration(accessToken);
-        redisTemplate.opsForValue().set(accessToken, "logout", expiration, TimeUnit.MICROSECONDS);
+        setRedis(accessToken, "logout", expiration, TimeUnit.MICROSECONDS);
 
         return "Success Logout";
     }
 
     @Override
     public TokenResponse reissue(HttpServletRequest request, String refreshToken) {
-        if (refreshToken == null || refreshToken.isEmpty()) {
+        if (refreshToken.isEmpty()) {
             refreshToken = JwtTokenFilter.getRefreshTokenByRequest(request); // 헤더에 없을 경우 쿠키에서 꺼내 씀
         }
 
         jwtTokenUtil.tokenValidation(refreshToken);
-
-        String newAccessToken = jwtTokenUtil.reCreateAccessToken(refreshToken);
-        long refreshTokenExpirationTime = jwtTokenUtil.getExpiration(refreshToken);
-
-        return TokenResponse.of(newAccessToken,
-            refreshToken,
-            refreshTokenExpirationTime);
+        return convertToTokenResponseFrom(refreshToken);
     }
 
     @Override
@@ -112,13 +97,38 @@ public class MemberServiceImpl implements MemberService {
     @Override
     @Transactional
     public String updatePassword(Member member, UpdatePasswordServiceRequest serviceRequest) {
-
-        if (!jwtSecurityConfig.passwordEncoder().matches(serviceRequest.prePassword(), member.getPassword())) {
-            throw new IllegalArgumentException("이전 패스워드가 일치하지 않습니다.");
-        }
+        checkPasswordMatch(serviceRequest.prePassword(), member.getPassword());
         member.changePassword(passwordEncoder.encode(serviceRequest.newPassword()));
         memberRepository.save(member);
 
         return "Success Change Password";
+    }
+
+    private void setRedis(String key, String value, Long expirationTime, TimeUnit timeUnit){
+        redisTemplate.opsForValue().set(key, value, expirationTime, timeUnit);
+    }
+
+    private Member findMemberByEmailElseThrow(String email){
+        return memberRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자 입니다."));
+    }
+
+    private void checkPasswordMatch(String password, String passwordConfirm){
+        if (!passwordEncoder.matches(password, passwordConfirm)) {
+            throw new IllegalArgumentException("패스워드가 일치하지 않습니다.");
+        }
+    }
+
+    private void checkDuplicateEmail(String email){
+        if (memberRepository.existByEmail(email))
+            throw new IllegalArgumentException("이미 존재하는 이메일 입니다.");
+    }
+
+    private TokenResponse convertToTokenResponseFrom(String refreshToken) {
+        return TokenResponse.of(
+                jwtTokenUtil.reCreateAccessToken(refreshToken),
+                refreshToken,
+                jwtTokenUtil.getExpiration(refreshToken)
+        );
     }
 }
