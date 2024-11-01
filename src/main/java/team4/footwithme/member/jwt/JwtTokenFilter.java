@@ -52,17 +52,14 @@ public class JwtTokenFilter extends OncePerRequestFilter {
             filterChain.doFilter(request, response);
         }
 
-        String cookieRefreshToken = getRefreshTokenByRequest(request);
+        String refreshToken = getRefreshTokenByRequest(request);
         String accessToken = jwtTokenUtil.getHeaderToken(request, ACCESS_TOKEN);
-        String refreshToken = jwtTokenUtil.getHeaderToken(request, REFRESH_TOKEN);
-        if (cookieRefreshToken != null) {
-            processSecurity(accessToken, cookieRefreshToken);
+
+        if (refreshToken == null) {
+            refreshToken = jwtTokenUtil.getHeaderToken(request, REFRESH_TOKEN);
         }
 
-        if (cookieRefreshToken == null) {
-            processSecurity(accessToken, refreshToken);
-        }
-
+        processSecurity(accessToken, refreshToken);
         filterChain.doFilter(request, response);
     }
 
