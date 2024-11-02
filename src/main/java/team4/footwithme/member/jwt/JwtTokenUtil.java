@@ -14,6 +14,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
+import team4.footwithme.global.exception.ExceptionMessage;
 import team4.footwithme.member.domain.Member;
 import team4.footwithme.member.domain.MemberRole;
 import team4.footwithme.member.jwt.response.TokenResponse;
@@ -32,11 +33,14 @@ public class JwtTokenUtil {
     public static final String ACCESS_TOKEN = "Authorization";
     public static final String REFRESH_TOKEN = "refresh_token";
     public static final String BEARER_PREFIX = "Bearer ";
+    public static final String COOKIE_REFRESH_TOKEN = "refreshToken";
     public static final long ACCESS_TIME = Duration.ofMinutes(30).toMillis(); // 만료시간 30분
     public static final long REFRESH_TIME = Duration.ofDays(14).toMillis(); // 만료시간 2주
+
     private final PrincipalDetailsService userDetailService;
     private final MemberRepository memberRepository;
     private final RedisTemplate redisTemplate;
+
     @Value("${jwt.secret}")
     private String secretKey;
     private Key key;
@@ -58,7 +62,7 @@ public class JwtTokenUtil {
         MemberRole role = getRoleFromEmail(email);
 
         String accessToken = createAccessToken(email, role);
-        String refreshToken = createRefreshToken(email, role);
+        String refreshToken = createRefreshToken(email);
 
         return TokenResponse.of(accessToken, refreshToken, REFRESH_TIME);
     }
@@ -90,17 +94,15 @@ public class JwtTokenUtil {
             .compact();
     }
 
-    public String createRefreshToken(String email, MemberRole role) {
+    public String createRefreshToken(String email) {
         Date date = new Date();
 
-        String refreshToken = Jwts.builder()
+        return Jwts.builder()
             .setSubject(email)
             .setExpiration(new Date(date.getTime() + REFRESH_TIME))
             .setIssuedAt(date)
             .signWith(key, SignatureAlgorithm.HS256)
             .compact();
-
-        return refreshToken;
     }
 
     public Authentication createAuthentication(String email) {
@@ -117,7 +119,7 @@ public class JwtTokenUtil {
 
     private MemberRole getRoleFromEmail(String email) {
         Member member = memberRepository.findByEmail(email)
-            .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자 입니다."));
+            .orElseThrow(() -> new IllegalArgumentException(ExceptionMessage.MEMBER_NOT_FOUND.getText()));
 
         return member.getMemberRole();
     }
@@ -144,13 +146,13 @@ public class JwtTokenUtil {
             Jwts.parserBuilder().setSigningKey(key).build().parseClaimsJws(token);
 
         } catch (SecurityException | MalformedJwtException e) {
-            throw new JwtException("유효하지 않은 JWT 토큰입니다.");
+            throw new JwtException(ExceptionMessage.INVALID_JWT_TOKEN.getText());
         } catch (ExpiredJwtException e) {
-            throw new JwtException("만료된 JWT 입니다.");
+            throw new JwtException(ExceptionMessage.EXPIRED_JWT_TOKEN.getText());
         } catch (UnsupportedJwtException e) {
-            throw new JwtException("지원하지 않은 JWT 입니다.");
+            throw new JwtException(ExceptionMessage.UNSUPPORTED_JWT_TOKEN.getText());
         } catch (IllegalArgumentException e) {
-            throw new JwtException("JWT 값이 비어있습니다.");
+            throw new JwtException(ExceptionMessage.EMPTY_JWT_TOKEN.getText());
         } catch (Exception e) {
             throw new RuntimeException(e.getMessage());
         }
@@ -167,7 +169,7 @@ public class JwtTokenUtil {
             redisRefreshToken = redisRefresh.toString();
 
         if (redisRefreshToken == null)
-            throw new JwtException("유효하지 않은 JWT 토큰입니다.");
+            throw new JwtException(ExceptionMessage.INVALID_JWT_TOKEN.getText());
 
     }
 

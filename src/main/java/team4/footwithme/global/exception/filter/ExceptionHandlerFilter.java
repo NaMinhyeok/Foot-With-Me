@@ -1,4 +1,4 @@
-package team4.footwithme.global.exception;
+package team4.footwithme.global.exception.filter;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.JwtException;
@@ -11,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 import team4.footwithme.global.api.ApiResponse;
+import team4.footwithme.global.util.ErrorResponseUtil;
 
 import java.io.IOException;
 
@@ -28,21 +29,7 @@ public class ExceptionHandlerFilter extends OncePerRequestFilter {
         }
     }
 
-    public void setErrorResponse(HttpStatus status, HttpServletResponse response, Throwable ex) {
-        ObjectMapper objectMapper = new ObjectMapper();
-        response.setStatus(status.value());
-        response.setContentType("application/json");
-        ApiResponse apiResponse = ApiResponse.of(
-            HttpStatus.UNAUTHORIZED,
-            ex.getMessage(),
-            null
-        );
-        try {
-            String jsonResponse = objectMapper.writeValueAsString(apiResponse);
-            response.setCharacterEncoding("UTF-8");
-            response.getWriter().write(jsonResponse);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+    public void setErrorResponse(HttpStatus status, HttpServletResponse response, Throwable ex) throws IOException {
+        ErrorResponseUtil.sendErrorResponse(response, ex.getMessage(), HttpServletResponse.SC_UNAUTHORIZED, status);
     }
 }
